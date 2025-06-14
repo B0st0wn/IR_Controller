@@ -11,7 +11,9 @@ from homeassistant.components.climate.const import (
     ClimateEntityFeature, HVACMode, HVAC_MODES, ATTR_HVAC_MODE)
 from homeassistant.const import (
     CONF_NAME, STATE_ON, STATE_OFF, STATE_UNKNOWN, STATE_UNAVAILABLE, ATTR_TEMPERATURE,
-    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE)
+    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE,
+    TEMP_CELSIUS, TEMP_FAHRENHEIT
+)
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.event import async_track_state_change, async_track_state_change_event
 import homeassistant.helpers.config_validation as cv
@@ -136,7 +138,12 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
 
         self._unit = hass.config.units.temperature_unit
         
-        #Supported features
+        # Use temp unit to convert min/max if needed
+        if self._unit == TEMP_FAHRENHEIT:
+            self._min_temperature = round(self._min_temperature * 9/5) + 32
+            self._max_temperature = round(self._max_temperature * 9/5) + 32
+
+        # Supported features
         self._support_flags = SUPPORT_FLAGS
         self._support_swing = False
 
@@ -148,7 +155,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         self._temp_lock = asyncio.Lock()
         self._on_by_remote = False
 
-        #Init the IR/RF controller
+        # Init the IR/RF controller
         self._controller = get_controller(
             self.hass,
             self._supported_controller,
@@ -303,10 +310,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
           
         if temperature is None:
             return
-            
-        if temperature < self._min_temperature or temperature > self._max_temperature:
-            _LOGGER.warning('The temperature value is out of min/max range') 
-            return
+        # No range check here, because min/max were converted at init
 
         if self._precision == PRECISION_WHOLE:
             self._target_temperature = round(temperature)
@@ -367,6 +371,11 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
                 fan_mode = self._current_fan_mode
                 swing_mode = self._current_swing_mode
                 target_temperature = '{0:g}'.format(self._target_temperature)
+                if self._unit == TEMP_FAHRENHEIT:
+                    # Convert F to C for lookup in JSON codes
+                    target_temperatureC = '{0:g}'.format(round((self._target_temperature - 32) * 5 / 9))
+                else:
+                    target_temperatureC = target_temperature
 
                 if operation_mode.lower() == HVACMode.OFF:
                     await self._controller.send(self._commands['off'])
@@ -378,10 +387,10 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
 
                 if self._support_swing == True:
                     await self._controller.send(
-                        self._commands[operation_mode][fan_mode][swing_mode][target_temperature])
+                        self._commands[operation_mode][fan_mode][swing_mode][target_temperatureC])
                 else:
                     await self._controller.send(
-                        self._commands[operation_mode][fan_mode][target_temperature])
+                        self._commands[operation_mode][fan_mode][target_temperatureC])
 
             except Exception as e:
                 _LOGGER.exception(e)
