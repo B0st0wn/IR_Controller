@@ -11,8 +11,7 @@ from homeassistant.components.climate.const import (
     ClimateEntityFeature, HVACMode, HVAC_MODES, ATTR_HVAC_MODE)
 from homeassistant.const import (
     CONF_NAME, STATE_ON, STATE_OFF, STATE_UNKNOWN, STATE_UNAVAILABLE, ATTR_TEMPERATURE,
-    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE,
-    TEMP_CELSIUS, TEMP_FAHRENHEIT
+    PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE
 )
 from homeassistant.core import Event, EventStateChangedData, callback
 from homeassistant.helpers.event import async_track_state_change, async_track_state_change_event
@@ -139,7 +138,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
         self._unit = hass.config.units.temperature_unit
         
         # Use temp unit to convert min/max if needed
-        if self._unit == TEMP_FAHRENHEIT:
+        if self._unit == "°F":
             self._min_temperature = round(self._min_temperature * 9/5) + 32
             self._max_temperature = round(self._max_temperature * 9/5) + 32
 
@@ -371,7 +370,7 @@ class SmartIRClimate(ClimateEntity, RestoreEntity):
                 fan_mode = self._current_fan_mode
                 swing_mode = self._current_swing_mode
                 target_temperature = '{0:g}'.format(self._target_temperature)
-                if self._unit == TEMP_FAHRENHEIT:
+                if self._unit == "°F":
                     # Convert F to C for lookup in JSON codes
                     target_temperatureC = '{0:g}'.format(round((self._target_temperature - 32) * 5 / 9))
                 else:
